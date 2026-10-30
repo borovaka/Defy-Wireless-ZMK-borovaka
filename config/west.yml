@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: MIT
+
+# The firmware this keymap builds with: the zmk-defy-wireless module at a
+# release tag. The module's own config/west.yml pins the ZMK revision it is
+# tested with, and west imports it from there. To update, change the tag here
+# and in .github/workflows/build.yml.
+manifest:
+  remotes:
+    - name: borovaka
+      url-base: https://github.com/borovaka
+  projects:
+    - name: zmk-defy-wireless
+      remote: borovaka
+      revision: v0.1.0
+      import: config/west.yml
+  self:
+    path: config

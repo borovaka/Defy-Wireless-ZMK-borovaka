@@ -1,0 +1,8 @@
+# What build.sh fetches with west, and what it builds.
+/.west/
+/zmk/
+/zephyr/
+/modules/
+/optional/
+/zmk-defy-wireless/
+/firmware/

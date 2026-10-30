@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: MIT
+#
+# Builds the halves, with the radio firmware they install, and the Neuron.
+# The images and manifest.json are in the run's "firmware" artifact. A push
+# to the default branch, or a manual run on it, also puts them in the release
+# tagged "firmware", where defy-installer finds them without signing in to
+# GitHub.
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request cancels the older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    # The module's release tag, the same as in config/west.yml; change both
+    # together to update. A tag rather than a commit, so it stays readable.
+    uses: borovaka/zmk-defy-wireless/.github/workflows/build-user-config.yml@v0.1.0 # zizmor: ignore[unpinned-uses]
+
+  release:
+    needs: build
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: firmware
+          path: firmware
+      # One release, its tag moved to each build, so old builds do not pile
+      # up. The images go first and the manifest last: a download in between
+      # finds hashes that do not match and says so.
+      - name: Replace the firmware release
+        working-directory: firmware
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mapfile -t files < <(jq -r '.files[].name' manifest.json)
+          # The Neuron's image for drag and drop onto its drive. The installer
+          # does not use it, so the manifest does not name it.
+          if [ -f neuron-hybrid.uf2 ]; then
+            files+=(neuron-hybrid.uf2)
+          fi
+          if gh release view firmware --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/firmware" \
+              -f sha="$GITHUB_SHA" -F force=true >/dev/null
+            gh release upload firmware --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
+            gh release upload firmware --repo "$GITHUB_REPOSITORY" --clobber manifest.json
+            # Images the manifest no longer names.
+            gh release view firmware --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' |
+              while read -r asset; do
+                if [ "$asset" != manifest.json ] && ! printf '%s\n' "${files[@]}" | grep -qxF "$asset"; then
+                  gh release delete-asset firmware "$asset" --repo "$GITHUB_REPOSITORY" --yes
+                fi
+              done
+            gh release edit firmware --repo "$GITHUB_REPOSITORY" --latest
+          else
+            gh release create firmware --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title Firmware --latest \
+              --notes "The latest build of the default branch, for defy-installer. manifest.json names its commit." \
+              "${files[@]}" manifest.json
+          fi
