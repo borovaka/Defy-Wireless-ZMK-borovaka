@@ -11,7 +11,7 @@ manifest:
   projects:
     - name: zmk-defy-wireless
       remote: borovaka
-      revision: v0.1.0
+      revision: v0.1.1
       import: config/west.yml
   self:
     path: config

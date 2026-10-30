@@ -24,7 +24,7 @@ jobs:
   build:
     # The module's release tag, the same as in config/west.yml; change both
     # together to update. A tag rather than a commit, so it stays readable.
-    uses: borovaka/zmk-defy-wireless/.github/workflows/build-user-config.yml@v0.1.0 # zizmor: ignore[unpinned-uses]
+    uses: borovaka/zmk-defy-wireless/.github/workflows/build-user-config.yml@v0.1.1 # zizmor: ignore[unpinned-uses]
 
   release:
     needs: build
